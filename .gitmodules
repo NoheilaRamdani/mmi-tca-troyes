@@ -1,0 +1,3 @@
+[submodule "ressources/s5/noheila-ra/projets/ci-cd-symfony/ressources/s5/noheila-ra/projets/ci-cd-symfony/act"]
+	path = ressources/s5/noheila-ra/projets/ci-cd-symfony/ressources/s5/noheila-ra/projets/ci-cd-symfony/act
+	url = https://github.com/nektos/act.git
