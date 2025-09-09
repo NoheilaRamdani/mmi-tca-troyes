@@ -29,3 +29,4 @@ class BuggyController extends AbstractController
         ]);
     }
 }
+// Petit test pour déclencher GitHub Actions
