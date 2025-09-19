@@ -7,7 +7,7 @@ on:
 
 defaults:
   run:
-    working-directory: ./ci-cd-symfony
+    working-directory: ./ressources/s5/noheila-ra/projets/ci-cd-symfony
 
 jobs:
   ci-symfony:
