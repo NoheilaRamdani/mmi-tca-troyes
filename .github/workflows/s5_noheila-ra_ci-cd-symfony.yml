@@ -23,7 +23,7 @@ jobs:
           coverage: pcov
 
       - name: Install dependencies
-        run: composer install --no-progress --prefer-dist --no-scripts
+        run: composer install --no-progress --prefer-dist
 
       - name: Run PHP-CS-Fixer
         run: ./vendor/bin/php-cs-fixer fix --dry-run --diff
@@ -78,4 +78,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: symfony-artifact
-          path: symfony-artifact-r1.tar.gz
+          path: ./ressources/s5/noheila-ra/projets/ci-cd-symfony/symfony-artifact-r1.tar.gz
