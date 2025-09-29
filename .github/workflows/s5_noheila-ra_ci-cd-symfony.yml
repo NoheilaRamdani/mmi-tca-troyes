@@ -1,4 +1,4 @@
-name: Symfony CI/CD
+name: Symfony CI
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+  ci-symfony:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,26 +19,44 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: "8.2"
+          coverage: pcov
 
       - name: Install dependencies
         run: composer install --no-progress --prefer-dist
 
-      - name: Run tests
-        run: ./vendor/bin/phpunit --coverage-text
+      - name: Run PHP-CS-Fixer
+        run: ./vendor/bin/php-cs-fixer fix --dry-run --diff
 
-      - name: Prepare prod env
+      - name: Run PHP lint
+        run: find src tests -name "*.php" -exec php -l {} \;
+
+      - name: Run PHPStan
+        run: ./vendor/bin/phpstan analyse
+
+      - name: Run PHPUnit
+        run: ./vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
+
+      - name: Audit de sécurité
+        run: composer audit --format=json --no-interaction
+        continue-on-error: true
+
+      # 🚀 Préparation pour prod
+      - name: Dump environment variables for production
         run: composer dump-env prod
         env:
           APP_ENV: prod
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Build prod dependencies
+      - name: Install production dependencies
         run: composer install --no-dev --optimize-autoloader --ignore-platform-reqs
+
+      - name: Install ImportMap packages
+        run: php bin/console importmap:install
 
       - name: Compile assets
         run: php bin/console asset-map:compile
 
-      # 📦 Création d'un artefact qui contient UNIQUEMENT le projet Symfony
+      # 📦 Création d’un artefact Symfony uniquement
       - name: Create artifact
         run: |
           tar -czvf symfony-artifact-r1.tar.gz \
@@ -60,36 +78,3 @@ jobs:
         with:
           name: symfony-artifact
           path: ressources/s5/noheila-ra/projets/ci-cd-symfony/symfony-artifact-r1.tar.gz
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: symfony-artifact
-          path: .
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.VPS_KEY }}
-
-      - name: Copy artifact to VPS
-        run: scp -o StrictHostKeyChecking=no symfony-artifact-r1.tar.gz ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/app/
-
-      - name: Deploy on VPS
-        run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-            cd /var/www/app
-            rm -rf *
-            tar -xvf symfony-artifact-r1.tar.gz
-            rm symfony-artifact-r1.tar.gz
-            composer install --no-dev --optimize-autoloader --ignore-platform-reqs
-            php bin/console doctrine:migrations:migrate --no-interaction
-            php bin/console cache:clear --env=prod
-            php bin/console cache:warmup --env=prod
-            sudo systemctl restart apache2
-          EOF
