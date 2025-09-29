@@ -56,10 +56,11 @@ jobs:
       - name: Compile assets
         run: php bin/console asset-map:compile
 
-      # 📦 Création d’un artefact Symfony uniquement
+      # 📦 Création d’un artefact qui contient UNIQUEMENT Symfony
       - name: Create artifact
         run: |
-          tar -czvf ../../../symfony-artifact-r1.tar.gz \
+          tar -czvf symfony-artifact-r1.tar.gz \
+            -C ressources/s5/noheila-ra/projets/ci-cd-symfony \
             --exclude=.git \
             --exclude=node_modules \
             --exclude=var/cache \
