@@ -1,4 +1,4 @@
-name: Symfony CI
+name: Symfony CI/CD
 
 on:
   push:
@@ -56,7 +56,7 @@ jobs:
       - name: Compile assets
         run: php bin/console asset-map:compile
 
-      # 📦 Création de l’artefact Symfony uniquement
+      # 📦 Création de l’artefact Symfony
       - name: Create artifact
         run: |
           tar -czvf symfony-artifact-r1.tar.gz \
@@ -72,9 +72,57 @@ jobs:
             --exclude=*.log \
             --exclude=*.gitignore \
             .
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: symfony-artifact
           path: ressources/s5/noheila-ra/projets/ci-cd-symfony/symfony-artifact-r1.tar.gz
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: ci-symfony
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: symfony-artifact
+          path: .
+
+      - name: Deploy to VPS
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          # Installer la clé SSH
+          echo "$SSH_PRIVATE_KEY" > private_key
+          chmod 600 private_key
+          
+          # Déployer l'artefact sur le VPS
+          scp -o StrictHostKeyChecking=no -P $SSH_PORT symfony-artifact-r1.tar.gz $SSH_USER@$SSH_HOST:/tmp/
+          
+          # Exécuter les commandes de déploiement sur le VPS
+          ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST << 'EOF'
+            # Déplacer l'artefact
+            sudo mv /tmp/symfony-artifact-r1.tar.gz /var/www/my-app/ressources/s5/noheila-ra/projets/ci-cd-symfony/
+            
+            # Aller dans le dossier du projet
+            cd /var/www/my-app/ressources/s5/noheila-ra/projets/ci-cd-symfony/
+            
+            # Décompresser l'artefact
+            sudo tar -xzvf symfony-artifact-r1.tar.gz
+            
+            # Mettre à jour les permissions
+            sudo chown -R www-data:www-data .
+            sudo chmod -R 775 public var
+            
+            # Vider le cache Symfony
+            php bin/console cache:clear --env=prod
+            
+            # Redémarrer PHP-FPM pour appliquer les changements
+            sudo systemctl restart php8.2-fpm
+          EOF
+          
+          # Nettoyer
+          rm private_key
