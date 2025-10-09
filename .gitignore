@@ -22,3 +22,4 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+symfony-artifact-r1.tar.gz
