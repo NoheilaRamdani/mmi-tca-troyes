@@ -87,16 +87,27 @@ jobs:
           name: symfony-artifact
           path: .
 
-      - name: Deploy to VPS
+      - name: Déploiement sur le VPS
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
+          # Écrire la clé privée dans un fichier
           echo "$SSH_PRIVATE_KEY" > private_key
           chmod 600 private_key
+
+          # Démarrer l'agent SSH
+          eval $(ssh-agent -s)
+
+          # Ajouter la clé privée à l'agent SSH
+          ssh-add private_key
+
+          # Copier l'artefact vers le VPS
           scp -o StrictHostKeyChecking=no -P $SSH_PORT symfony-artifact-r1.tar.gz $SSH_USER@$SSH_HOST:/tmp/
+
+          # Se connecter au VPS via SSH et effectuer les tâches de déploiement
           ssh -o StrictHostKeyChecking=no -p $SSH_PORT $SSH_USER@$SSH_HOST << 'EOF'
             sudo mv /tmp/symfony-artifact-r1.tar.gz /var/www/my-app/ressources/s5/noheila-ra/projets/ci-cd-symfony/
             cd /var/www/my-app/ressources/s5/noheila-ra/projets/ci-cd-symfony/
@@ -106,4 +117,7 @@ jobs:
             php bin/console cache:clear --env=prod
             sudo systemctl restart php8.2-fpm
           EOF
+
+          # Nettoyage
           rm private_key
+          ssh-agent -k
